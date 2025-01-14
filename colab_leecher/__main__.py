@@ -459,6 +459,7 @@ logging.info("Colab Leecher Started !")
 colab_bot.run()
 
 
+import asyncio
 import subprocess
 
 @colab_bot.on_message(filters.command("rcupload") & filters.private)
@@ -467,20 +468,45 @@ async def rclone_upload(client, message):
         await message.reply_text("You are not authorized to use this command.")
         return
 
-    await message.reply_text("Starting rclone upload...")
+    status_message = await message.reply_text("Starting rclone upload...")
     
     try:
         # Execute the rclone command
-        process = subprocess.Popen(
-            ["rclone", "copy", "/content/drive", "romensi007:a", "--config", "/content/rclone.conf"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+        process = await asyncio.create_subprocess_exec(
+            "rclone", "copy", "/content/drive", "romensi007:a", "--config", "/content/rclone.conf", "--progress",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
         )
-        stdout, stderr = process.communicate()
-        
+
+        # Function to update status message
+        async def update_status():
+            while True:
+                if process.stdout:
+                    line = await process.stdout.readline()
+                    if not line:
+                        break
+                    line = line.decode('utf-8').strip()
+                    if line:
+                        await status_message.edit_text(f"Upload in progress:\n{line}")
+                await asyncio.sleep(5)
+
+        # Start status update task
+        update_task = asyncio.create_task(update_status())
+
+        # Wait for the process to complete
+        stdout, stderr = await process.communicate()
+
+        # Cancel status update task
+        update_task.cancel()
+
         if process.returncode == 0:
-            await message.reply_text("Rclone upload completed successfully!")
+            await status_message.edit_text("Rclone upload completed successfully!")
         else:
-            await message.reply_text(f"Rclone upload failed. Error: {stderr.decode()}")
+            error_message = stderr.decode('utf-8') if stderr else "Unknown error"
+            await status_message.edit_text(f"Rclone upload failed. Error:\n{error_message}")
     except Exception as e:
-        await message.reply_text(f"An error occurred: {str(e)}")
+        await status_message.edit_text(f"An error occurred: {str(e)}")
+
+    # Log the full output for debugging
+    logging.info(f"Rclone stdout: {stdout.decode('utf-8') if stdout else 'None'}")
+    logging.info(f"Rclone stderr: {stderr.decode('utf-8') if stderr else 'None'}")
