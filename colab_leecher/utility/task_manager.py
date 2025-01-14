@@ -1,11 +1,12 @@
 # copyright 2024 © Xron Trix | https://github.com/Xrontrix10
 
+
 import pytz
 import shutil
 import logging
 from time import time
 from datetime import datetime
-from asyncio import sleep, Semaphore
+from asyncio import sleep
 from os import makedirs, path as ospath, system
 from colab_leecher import OWNER, colab_bot, DUMP_ID
 from colab_leecher.downlader.manager import calDownSize, get_d_name, downloadManager
@@ -39,8 +40,6 @@ from colab_leecher.utility.variables import (
     TaskError,
 )
 
-# Add this global variable for controlling concurrent uploads
-UPLOAD_SEMAPHORE = Semaphore(3)  # Allows 3 concurrent uploads
 
 async def task_starter(message, text):
     global BOT
@@ -56,6 +55,7 @@ async def task_starter(message, text):
         await sleep(15)
         await msg.delete()
         return None
+
 
 async def taskScheduler():
     global BOT, MSG, BotTimes, Messages, Paths, Transfer, TaskError
@@ -125,6 +125,7 @@ async def taskScheduler():
 
     if ospath.exists(Paths.WORK_PATH):
         shutil.rmtree(Paths.WORK_PATH)
+        # makedirs(Paths.WORK_PATH)
         makedirs(Paths.down_path)
     else:
         makedirs(Paths.WORK_PATH)
@@ -147,7 +148,7 @@ async def taskScheduler():
 
     await MSG.status_msg.delete()
     img = Paths.THMB_PATH if ospath.exists(Paths.THMB_PATH) else Paths.HERO_IMAGE
-    MSG.status_msg = await colab_bot.send_photo(
+    MSG.status_msg = await colab_bot.send_photo(  # type: ignore
         chat_id=OWNER,
         photo=img,
         caption=Messages.task_msg
@@ -175,6 +176,7 @@ async def taskScheduler():
         await Do_Leech(BOT.SOURCE, is_dir, BOT.Mode.ytdl, is_zip, is_unzip, is_dualzip)
     else:
         await Do_Mirror(BOT.SOURCE, BOT.Mode.ytdl, is_zip, is_unzip, is_dualzip)
+
 
 async def Do_Leech(source, is_dir, is_ytdl, is_zip, is_unzip, is_dualzip):
     if is_dir:
@@ -228,22 +230,38 @@ async def Do_Leech(source, is_dir, is_ytdl, is_zip, is_unzip, is_dualzip):
 
     await SendLogs(True)
 
+
 async def Do_Mirror(source, is_ytdl, is_zip, is_unzip, is_dualzip):
     if not ospath.exists(Paths.MOUNTED_DRIVE):
         await cancelTask(
-            f"Google Drive is not mounted at {Paths.MOUNTED_DRIVE}. Please mount it first."
+            "Google Drive is NOT MOUNTED ! Stop the Bot and Run the Google Drive Cell to Mount, then Try again !"
         )
         return
 
-    # Rest of the Do_Mirror function remains the same
-    # ...
+    if not ospath.exists(Paths.mirror_dir):
+        makedirs(Paths.mirror_dir)
+
+    await downloadManager(source, is_ytdl)
+
+    Transfer.total_down_size = getSize(Paths.down_path)
+
+    applyCustomName()
+
+    cdt = datetime.now()
+    cdt_ = cdt.strftime("Uploaded » %Y-%m-%d %H:%M:%S")
+    mirror_dir_ = ospath.join(Paths.mirror_dir, cdt_)
+
+    if is_zip:
+        await Zip_Handler(Paths.down_path, True, True)
+        shutil.copytree(Paths.temp_zpath, mirror_dir_)
+    elif is_unzip:
+        await Unzip_Handler(Paths.down_path, True)
+        shutil.copytree(Paths.temp_unzip_path, mirror_dir_)
+    elif is_dualzip:
+        await Unzip_Handler(Paths.down_path, True)
+        await Zip_Handler(Paths.temp_unzip_path, True, True)
+        shutil.copytree(Paths.temp_zpath, mirror_dir_)
+    else:
+        shutil.copytree(Paths.down_path, mirror_dir_)
 
     await SendLogs(False)
-
-# Modify the Leech function to use the semaphore
-async def Leech(source_path, is_file):
-    async with UPLOAD_SEMAPHORE:
-        # Existing Leech function code goes here
-        pass
-
-# The rest of your code remains the same

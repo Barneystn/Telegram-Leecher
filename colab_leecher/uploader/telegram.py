@@ -1,16 +1,14 @@
 # copyright 2023 © Xron Trix | https://github.com/Xrontrix10
 
+
 import logging
 from PIL import Image
-from asyncio import sleep, Lock
+from asyncio import sleep
 from os import path as ospath
 from datetime import datetime
 from pyrogram.errors import FloodWait
 from colab_leecher.utility.variables import BOT, Transfer, BotTimes, Messages, MSG, Paths
 from colab_leecher.utility.helper import sizeUnit, fileType, getTime, status_bar, thumbMaintainer, videoExtFix
-
-# Add this global variable
-upload_semaphore = Lock()
 
 async def progress_bar(current, total):
     global status_msg, status_head
@@ -27,88 +25,81 @@ async def progress_bar(current, total):
         eta=getTime(eta),
         done=sizeUnit(current + sum(Transfer.up_bytes)),
         left=sizeUnit(Transfer.total_down_size),
+        engine="Pyrofork 💥",
     )
 
-async def upload_file(file_path, og_file_name):
-    global BOT, MSG, BotTimes, Messages, Paths, Transfer
 
-    file_name = ospath.basename(file_path)
-    file_type = fileType(file_path)
-    og_file_name = og_file_name.replace("_", " ")
-
-    Messages.status_head = f"<b>📤 UPLOADING » </b>\n\n<code>{og_file_name}</code>\n"
+async def upload_file(file_path, real_name):
+    global Transfer, MSG
     BotTimes.task_start = datetime.now()
+    caption = f"<{BOT.Options.caption}>{BOT.Setting.prefix} {real_name} {BOT.Setting.suffix}</{BOT.Options.caption}>"
+    type_ = fileType(file_path)
 
-    if file_type == "video" and BOT.Setting.stream_upload == "video":
-        await videoExtFix(file_path)
-        thumb_path = await thumbMaintainer(file_path)
-        width, height, duration = await videoExtFix(file_path)
-        try:
-            async with upload_semaphore:
-                MSG.sent_file = await MSG.sent_msg.reply_video(
-                    video=file_path,
-                    caption=f"**{og_file_name}**",
-                    duration=duration,
-                    width=width,
-                    height=height,
-                    thumb=thumb_path,
-                    supports_streaming=True,
-                    progress=progress_bar,
-                )
-        except FloodWait as e:
-            await sleep(e.value)
-            return await upload_file(file_path, og_file_name)
+    f_type = type_ if BOT.Options.stream_upload else "document"
 
-    elif file_type == "audio":
-        thumb_path = Paths.THMB_PATH if ospath.exists(Paths.THMB_PATH) else None
-        try:
-            async with upload_semaphore:
-                MSG.sent_file = await MSG.sent_msg.reply_audio(
-                    audio=file_path,
-                    caption=f"**{og_file_name}**",
-                    thumb=thumb_path,
-                    progress=progress_bar,
-                )
-        except FloodWait as e:
-            await sleep(e.value)
-            return await upload_file(file_path, og_file_name)
+    # Upload the file
+    try:
+        if f_type == "video":
+            # For Renaming to mp4
+            if not BOT.Options.stream_upload:
+                file_path = videoExtFix(file_path)
+            # Generate Thumbnail and Get Duration
+            thmb_path, seconds = thumbMaintainer(file_path)
+            with Image.open(thmb_path) as img:
+                width, height = img.size
 
-    elif file_type == "document":
-        if BOT.Setting.stream_upload == "document" and ospath.getsize(file_path) > 2000 * 1000 * 1000:
-            try:
-                with Image.open(Paths.THMB_PATH) as img:
-                    width, height = img.size
-                async with upload_semaphore:
-                    MSG.sent_file = await MSG.sent_msg.reply_document(
-                        document=file_path,
-                        caption=f"**{og_file_name}**",
-                        thumb=Paths.THMB_PATH,
-                        force_document=True,
-                        progress=progress_bar,
-                    )
-            except FloodWait as e:
-                await sleep(e.value)
-                return await upload_file(file_path, og_file_name)
-        else:
-            try:
-                async with upload_semaphore:
-                    MSG.sent_file = await MSG.sent_msg.reply_document(
-                        document=file_path,
-                        caption=f"**{og_file_name}**",
-                        force_document=True,
-                        progress=progress_bar,
-                    )
-            except FloodWait as e:
-                await sleep(e.value)
-                return await upload_file(file_path, og_file_name)
+            MSG.sent_msg = await MSG.sent_msg.reply_video(
+                video=file_path,
+                supports_streaming=True,
+                width=width,
+                height=height,
+                caption=caption,
+                thumb=thmb_path,
+                duration=int(seconds),
+                progress=progress_bar,
+                reply_to_message_id=MSG.sent_msg.id,
+            )
 
-    Transfer.up_bytes.append(ospath.getsize(file_path))
-    Transfer.sent_file.append(MSG.sent_file)
-    Transfer.sent_file_names.append(og_file_name)
+        elif f_type == "audio":
+            thmb_path = None if not ospath.exists(Paths.THMB_PATH) else Paths.THMB_PATH
+            MSG.sent_msg = await MSG.sent_msg.reply_audio(
+                audio=file_path,
+                caption=caption,
+                thumb=thmb_path,  # type: ignore
+                progress=progress_bar,
+                reply_to_message_id=MSG.sent_msg.id,
+            )
 
-async def TelegramUploader():
-    for dirpath, _, filenames in ospath.walk(Paths.down_path):
-        for f in sorted(filenames):
-            up_path = ospath.join(dirpath, f)
-            await upload_file(up_path, f)
-    return True
+        elif f_type == "document":
+            if ospath.exists(Paths.THMB_PATH):
+                thmb_path = Paths.THMB_PATH
+            elif type_ == "video":
+                thmb_path, _ = thumbMaintainer(file_path)
+            else:
+                thmb_path = None
+
+            MSG.sent_msg = await MSG.sent_msg.reply_document(
+                document=file_path,
+                caption=caption,
+                thumb=thmb_path,  # type: ignore
+                progress=progress_bar,
+                reply_to_message_id=MSG.sent_msg.id,
+            )
+
+        elif f_type == "photo":
+            MSG.sent_msg = await MSG.sent_msg.reply_photo(
+                photo=file_path,
+                caption=caption,
+                progress=progress_bar,
+                reply_to_message_id=MSG.sent_msg.id,
+            )
+
+        Transfer.sent_file.append(MSG.sent_msg)
+        Transfer.sent_file_names.append(real_name)
+
+    except FloodWait as e:
+        logging.warning(f"FloodWait: Waiting {e.value} Seconds Before Trying Again.")
+        await sleep(e.value)  # Wait dynamic FloodWait seconds before Trying Again
+        await upload_file(file_path, real_name)
+    except Exception as e:
+        logging.error(f"Error When Uploading : {e}")

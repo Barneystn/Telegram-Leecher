@@ -13,6 +13,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from .utility.helper import isLink, setThumbnail, message_deleter, send_settings
 
 
+
 src_request_msg = None
 
 
@@ -456,3 +457,30 @@ async def help_command(client, message):
 
 logging.info("Colab Leecher Started !")
 colab_bot.run()
+
+
+import subprocess
+
+@colab_bot.on_message(filters.command("rcupload") & filters.private)
+async def rclone_upload(client, message):
+    if message.from_user.id != OWNER:
+        await message.reply_text("You are not authorized to use this command.")
+        return
+
+    await message.reply_text("Starting rclone upload...")
+    
+    try:
+        # Execute the rclone command
+        process = subprocess.Popen(
+            ["rclone", "copy", "/content/drive", "romensi007:a", "--config", "/content/rclone.conf"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        stdout, stderr = process.communicate()
+        
+        if process.returncode == 0:
+            await message.reply_text("Rclone upload completed successfully!")
+        else:
+            await message.reply_text(f"Rclone upload failed. Error: {stderr.decode()}")
+    except Exception as e:
+        await message.reply_text(f"An error occurred: {str(e)}")
