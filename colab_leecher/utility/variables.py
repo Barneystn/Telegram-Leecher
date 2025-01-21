@@ -69,20 +69,20 @@ class BotTimes:
 
 
 class Paths:
-    WORK_PATH = "/content/Telegram-Leecher/BOT_WORK"
-    THMB_PATH = "/content/Telegram-Leecher/colab_leecher/Thumbnail.jpg"
+    WORK_PATH = "/work/Telegram-Leecher/BOT_WORK"
+    THMB_PATH = "/work/Telegram-Leecher/colab_leecher/Thumbnail.jpg"
     VIDEO_FRAME = f"{WORK_PATH}/video_frame.jpg"
     HERO_IMAGE = f"{WORK_PATH}/Hero.jpg"
-    DEFAULT_HERO =  "/content/Telegram-Leecher/custom_thmb.jpg"
-    MOUNTED_DRIVE = "/content/drive"
+    DEFAULT_HERO =  "/work/Telegram-Leecher/custom_thmb.jpg"
+    MOUNTED_DRIVE = "/work/drive"
     down_path = f"{WORK_PATH}/Downloads"
     temp_dirleech_path = f"{WORK_PATH}/dir_leech_temp"
-    mirror_dir = "/content/drive/MyDrive/Colab Leecher Uploads"
+    mirror_dir = "/work/drive/MyDrive/Colab Leecher Uploads"
     temp_zpath = f"{WORK_PATH}/Leeched_Files"
     temp_unzip_path = f"{WORK_PATH}/Unzipped_Files"
     temp_files_dir = f"{WORK_PATH}/leech_temp"
     thumbnail_ytdl = f"{WORK_PATH}/ytdl_thumbnails"
-    access_token = "/content/token.pickle"
+    access_token = "/work/token.pickle"
 
 
 class Messages:
