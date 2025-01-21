@@ -12,9 +12,8 @@ class BOT:
     class Setting:
         stream_upload = "Media"
         convert_video = "Yes"
-        convert_quality = "Low"
+        convert_quality = "High"
         caption = "Monospace"
-        split_video = "Split Videos"
         prefix = ""
         suffix = ""
         thumbnail = False
@@ -22,8 +21,7 @@ class BOT:
     class Options:
         stream_upload = True
         convert_video = True
-        convert_quality = False
-        is_split = True
+        convert_quality = True
         caption = "code"
         video_out = "mp4"
         custom_name = ""
